@@ -16,6 +16,10 @@ db.transaction((tx) => {
     'CREATE TABLE IF NOT EXISTS counters (date TEXT PRIMARY KEY, count INTEGER)'
   );
   tx.executeSql(
+    'CREATE TABLE IF NOT EXISTS increments (id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT NOT NULL, hour INTEGER NOT NULL, iso TEXT NOT NULL, amount INTEGER NOT NULL)'
+  );
+  tx.executeSql('CREATE INDEX IF NOT EXISTS idx_increments_date ON increments(date)');
+  tx.executeSql(
     'INSERT OR IGNORE INTO counters (date, count) VALUES (?, 0)',
     [getTodayDateString()]
   );

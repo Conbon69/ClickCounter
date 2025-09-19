@@ -6,9 +6,9 @@ const STORAGE_KEY = 'counters_storage_v1';
 function loadState() {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : { counters: {} };
+    return raw ? JSON.parse(raw) : { counters: {}, increments: [] };
   } catch (_e) {
-    return { counters: {} };
+    return { counters: {}, increments: [] };
   }
 }
 
@@ -82,6 +82,32 @@ const db = {
             const arr = Object.keys(state.counters)
               .sort((a, b) => a.localeCompare(b))
               .map((date) => ({ date, count: state.counters[date] }));
+            successCb && successCb(tx, { rowsAffected: 0, rows: { _array: arr } });
+            return;
+          }
+
+          // INSERT INTO increments (date, hour, iso, amount) VALUES (?, ?, ?, ?)
+          if (normalized.startsWith('INSERT INTO INCREMENTS')) {
+            const [date, hour, iso, amount] = params;
+            state.increments.push({ date, hour: Number(hour) || 0, iso, amount: Number(amount) || 0 });
+            saveState(state);
+            successCb && successCb(tx, { rowsAffected: 1, rows: { _array: [] } });
+            return;
+          }
+
+          // SELECT hour, SUM(amount) as count FROM increments WHERE date = ? GROUP BY hour ORDER BY hour ASC
+          if (normalized.startsWith('SELECT HOUR, SUM(AMOUNT) AS COUNT FROM INCREMENTS WHERE DATE =')) {
+            const [date] = params;
+            const buckets = new Map();
+            for (let i = 0; i < 24; i++) buckets.set(i, 0);
+            state.increments
+              .filter((r) => r.date === date)
+              .forEach((r) => {
+                buckets.set(r.hour, (buckets.get(r.hour) || 0) + (Number(r.amount) || 0));
+              });
+            const arr = Array.from(buckets.entries())
+              .sort((a, b) => a[0] - b[0])
+              .map(([hour, count]) => ({ hour, count }));
             successCb && successCb(tx, { rowsAffected: 0, rows: { _array: arr } });
             return;
           }

@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, Text, View, Button } from 'react-native';
-import { initDB, incrementTodayCount, getDailyAnalytics } from './counterService';
+import { initDB, incrementTodayCount, getDailyAnalytics, getTimeOfDayTrends } from './counterService';
 
 export default function App() {
   const [todayCount, setTodayCount] = useState<number>(0);
   const [last7Days, setLast7Days] = useState<Array<{ date: string; count: number }>>([]);
+  const [hourlyTrend, setHourlyTrend] = useState<Array<{ hour: number; count: number }>>([]);
 
   function getTodayDateString(): string {
     const now = new Date();
@@ -25,6 +26,8 @@ export default function App() {
         setTodayCount(todayRow?.count ?? 0);
         const last7 = analytics.slice(Math.max(analytics.length - 7, 0));
         setLast7Days(last7);
+        const trend = await getTimeOfDayTrends();
+        setHourlyTrend(trend);
       } catch (err) {
         console.error(err);
       }
@@ -38,6 +41,8 @@ export default function App() {
       const analytics = await getDailyAnalytics();
       const last7 = analytics.slice(Math.max(analytics.length - 7, 0));
       setLast7Days(last7);
+      const trend = await getTimeOfDayTrends();
+      setHourlyTrend(trend);
     } catch (err) {
       console.error(err);
     }
@@ -54,6 +59,10 @@ export default function App() {
         <Text style={styles.subtitle}>Last 7 Days</Text>
         {last7Days.map((row) => (
           <Text key={row.date} style={styles.analyticsRow}>{row.date}: {row.count}</Text>
+        ))}
+        <Text style={[styles.subtitle, { marginTop: 16 }]}>Today by Hour</Text>
+        {hourlyTrend.map((b) => (
+          <Text key={b.hour} style={styles.analyticsRow}>{String(b.hour).padStart(2, '0')}:00 — {b.count}</Text>
         ))}
       </View>
       <StatusBar style="auto" />

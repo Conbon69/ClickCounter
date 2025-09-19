@@ -57,6 +57,9 @@ export function incrementTodayCount(amount = 1) {
         return;
       }
       const today = getTodayDateString();
+      const now = new Date();
+      const hour = now.getHours();
+      const iso = now.toISOString();
       db.transaction(
         (tx) => {
           // Ensure today's row exists, then update
@@ -76,6 +79,11 @@ export function incrementTodayCount(amount = 1) {
                 );
               }
             }
+          );
+          // Log increment for time-of-day trends
+          tx.executeSql(
+            'INSERT INTO increments (date, hour, iso, amount) VALUES (?, ?, ?, ?);',
+            [today, hour, iso, amount]
           );
           tx.executeSql(
             'SELECT date, count FROM counters WHERE date = ? LIMIT 1;',
@@ -181,8 +189,26 @@ export function getDailyAnalytics() {
 export function getTimeOfDayTrends() {
   return new Promise((resolve, reject) => {
     try {
-      const trend = Array.from({ length: 24 }, (_v, hour) => ({ hour, count: 0 }));
-      resolve(trend);
+      const today = getTodayDateString();
+      db.transaction(
+        (tx) => {
+          tx.executeSql(
+            'SELECT hour, SUM(amount) as count FROM increments WHERE date = ? GROUP BY hour ORDER BY hour ASC;',
+            [today],
+            (_tx, { rows }) => {
+              const buckets = Array.from({ length: 24 }, (_v, h) => ({ hour: h, count: 0 }));
+              const arr = rows?._array || [];
+              arr.forEach((r) => {
+                const h = Number(r.hour) || 0;
+                const c = Number(r.count) || 0;
+                if (h >= 0 && h < 24) buckets[h].count = c;
+              });
+              resolve(buckets);
+            }
+          );
+        },
+        (error) => reject(new Error(`getTimeOfDayTrends: database error: ${error?.message || String(error)}`))
+      );
     } catch (error) {
       reject(new Error(`getTimeOfDayTrends: unexpected error: ${error?.message || String(error)}`));
     }
