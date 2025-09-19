@@ -6,7 +6,11 @@ const STORAGE_KEY = 'counters_storage_v1';
 function loadState() {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : { counters: {}, increments: [] };
+    const parsed = raw ? JSON.parse(raw) : { counters: {}, increments: [] };
+    // Backfill for older stored shapes
+    if (!parsed.counters || typeof parsed.counters !== 'object') parsed.counters = {};
+    if (!Array.isArray(parsed.increments)) parsed.increments = [];
+    return parsed;
   } catch (_e) {
     return { counters: {}, increments: [] };
   }
@@ -29,8 +33,8 @@ const db = {
         executeSql(sql, params = [], successCb) {
           const normalized = String(sql).trim().toUpperCase();
 
-          // CREATE TABLE IF NOT EXISTS counters (...)
-          if (normalized.startsWith('CREATE TABLE')) {
+          // CREATE TABLE/INDEX no-ops
+          if (normalized.startsWith('CREATE TABLE') || normalized.startsWith('CREATE INDEX')) {
             successCb && successCb(tx, { rowsAffected: 0, rows: { _array: [] } });
             return;
           }
@@ -109,6 +113,16 @@ const db = {
               .sort((a, b) => a[0] - b[0])
               .map(([hour, count]) => ({ hour, count }));
             successCb && successCb(tx, { rowsAffected: 0, rows: { _array: arr } });
+            return;
+          }
+
+          // DELETE FROM increments WHERE date = ?
+          if (normalized.startsWith('DELETE FROM INCREMENTS WHERE DATE =')) {
+            const [date] = params;
+            const before = state.increments.length;
+            state.increments = state.increments.filter((r) => r.date !== date);
+            saveState(state);
+            successCb && successCb(tx, { rowsAffected: before - state.increments.length, rows: { _array: [] } });
             return;
           }
 

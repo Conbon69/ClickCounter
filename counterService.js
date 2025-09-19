@@ -103,6 +103,61 @@ export function incrementTodayCount(amount = 1) {
 }
 
 /**
+ * resetTodayCount
+ * Resets today's total count to 0 and clears today's increment logs.
+ *
+ * Example:
+ *   resetTodayCount().then(({ date, count }) => console.log(date, count));
+ * Expected:
+ *   resolves to { date: 'YYYY-MM-DD', count: 0 }
+ */
+export function resetTodayCount() {
+  return new Promise((resolve, reject) => {
+    try {
+      const today = getTodayDateString();
+      db.transaction(
+        (tx) => {
+          // Ensure a row exists
+          tx.executeSql(
+            'INSERT OR IGNORE INTO counters (date, count) VALUES (?, 0)',
+            [today]
+          );
+          // Read current value
+          tx.executeSql(
+            'SELECT date, count FROM counters WHERE date = ? LIMIT 1;',
+            [today],
+            (_tx, { rows }) => {
+              const row = rows?._array?.[0];
+              const current = Number(row?.count || 0);
+              if (current !== 0) {
+                _tx.executeSql(
+                  'UPDATE counters SET count = count + ? WHERE date = ?;',
+                  [-current, today]
+                );
+              }
+            }
+          );
+          // Clear today's increments
+          tx.executeSql('DELETE FROM increments WHERE date = ?;', [today]);
+          // Return the new total
+          tx.executeSql(
+            'SELECT date, count FROM counters WHERE date = ? LIMIT 1;',
+            [today],
+            (_tx, { rows }) => {
+              const row = rows?._array?.[0];
+              resolve({ date: row?.date || today, count: Number(row?.count || 0) });
+            }
+          );
+        },
+        (error) => reject(new Error(`resetTodayCount: database error: ${error?.message || String(error)}`))
+      );
+    } catch (error) {
+      reject(new Error(`resetTodayCount: unexpected error: ${error?.message || String(error)}`));
+    }
+  });
+}
+
+/**
  * resetCountsAtMidnight
  * Schedules an automatic insert/ensure of a new row for the next local midnight
  * so that the day starts at 0. Returns an object with a cancel() method.

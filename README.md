@@ -36,4 +36,34 @@ Test Suites: 1 passed, 1 total
 - Analytics list shows correct historical data
 - All tests pass with green output
 
+## Deploy to Render (Static Site for Web Preview)
+
+Note: This project targets mobile (Expo Go / native). The SQLite storage is designed for iOS/Android and may not function on the web build. Use Render to host a web preview only. Connect your GitHub repo first (e.g., `Conbon69/ClickCounter`).
+
+1) Push code to GitHub
+
+   - Repository: [`Conbon69/ClickCounter`](https://github.com/Conbon69/ClickCounter)
+
+2) On Render, create a new Static Site
+
+   - Connect your GitHub account and select the repo above.
+   - Root Directory: `counter-app`
+   - Build Command:
+     ```bash
+     npm ci && npx expo export --platform web --output-dir dist
+     ```
+   - Publish Directory: `dist`
+   - Environment (optional but recommended):
+     - `NODE_VERSION` = `18`
+     - `EXPO_NO_TELEMETRY` = `1`
+
+3) Deploy
+
+   - Render will install dependencies and produce a static web build.
+   - Visit the Render URL. UI should load, but device-only features (SQLite persistence) may be limited in the web preview.
+
+4) Recommended for Mobile
+
+   - For full functionality (SQLite), use Expo Go or build native binaries. The Render deployment is just a convenient web preview of the UI.
+
 

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, Text, View, Button } from 'react-native';
-import { initDB, incrementTodayCount, getDailyAnalytics, getTimeOfDayTrends } from './counterService';
+import { initDB, incrementTodayCount, getDailyAnalytics, getTimeOfDayTrends, resetTodayCount } from './counterService';
 
 export default function App() {
   const [todayCount, setTodayCount] = useState<number>(0);
@@ -48,12 +48,28 @@ export default function App() {
     }
   };
 
+  const handleReset = async () => {
+    try {
+      const { count } = await resetTodayCount();
+      setTodayCount(count);
+      const analytics = await getDailyAnalytics();
+      const last7 = analytics.slice(Math.max(analytics.length - 7, 0));
+      setLast7Days(last7);
+      const trend = await getTimeOfDayTrends();
+      setHourlyTrend(trend);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Today's Count</Text>
       <Text style={styles.count}>{todayCount}</Text>
       <View style={styles.buttonRow}>
         <Button title="Increment" onPress={handleIncrement} />
+        <View style={{ height: 8 }} />
+        <Button color="#cc0000" title="Reset Today" onPress={handleReset} />
       </View>
       <View style={styles.analytics}>
         <Text style={styles.subtitle}>Last 7 Days</Text>
